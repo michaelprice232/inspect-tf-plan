@@ -40,3 +40,14 @@ resource "aws_security_group" "web" {
     Name = "mike-test"
   }
 }
+
+resource "aws_launch_template" "web" {
+  name          = "mike-test"
+  instance_type = "t3.large"
+}
+
+resource "aws_launch_configuration" "web" {
+  name          = "mike-test"
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = "t3.nano"
+}
