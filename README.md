@@ -7,9 +7,9 @@ phase for any incorrect instance types, either due to typos or not being availab
 There are linters out there such as [tflint](https://github.com/terraform-linters/tflint) which can check for valid instance types,
 but they don't check for regional availability.
 
-The tool solves this problem by checking the diff of the Terraform plan for any of the supported resource types validates that the
+The tool solves this problem by checking the diff of the Terraform plan for any of the supported resource types and validates that the
 instance type is valid for the target AWS region by using the [describe-instance-type-offerings](https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instance-type-offerings.html) API.
-The target region will be the one assigned to the AWS credentials being used (an example using AWS profiles is below).
+The target region will be the one assigned to the AWS credentials in use (an example using AWS profiles is below).
 
 The input to this tool is a Terraform plan which has been exported in JSON format:
 ```shell
@@ -17,7 +17,8 @@ terraform plan -out=plan
 terraform show -json plan | jq > plan-pretty.json # jq is optional, just to make it more human readable
 ```
 
-The tool will output each Terraform resource which has an invalid EC2 instance type selected.
+The tool will output each Terraform resource which has an invalid EC2 instance type selected. If any invalid types are detected
+the program will exit with a non-zero code. 
 
 Currently supported Terraform resource types:
 1. `aws_instance`
@@ -25,13 +26,12 @@ Currently supported Terraform resource types:
 3. `aws_launch_configuration`
 
 ## How to run locally
-Typically, the tool would be run from a CI tool after the Terraform plan stage has executed. Example of running locally:
+Typically, the tool would be run from a CI system after the Terraform plan stage has executed. Example of running locally:
 ```shell
-go build -o inspect-tf-plan ./cmd/inspect-tf-plan/main.go
-AWS_PROFILE=profile ./inspect-tf-plan --plan-path <path-to-plan>
+AWS_PROFILE=profile go run ./cmd/inspect-tf-plan/main.go --plan-path <path-to-plan>
 
 # Example
-AWS_PROFILE=profile ./inspect-tf-plan --plan-path ./plans/two-changes-bad.json
+AWS_PROFILE=profile go run ./cmd/inspect-tf-plan/main.go --plan-path ./plans/two-changes-bad.json
 ```
 
 
