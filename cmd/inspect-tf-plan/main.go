@@ -13,9 +13,6 @@ import (
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
-const region = "eu-west-2"
-const awsProfile = "scratch"
-
 type client struct {
 	ec2Client          *ec2.Client
 	paginator          *ec2.DescribeInstanceTypeOfferingsPaginator
@@ -26,7 +23,7 @@ type client struct {
 func newClient() (*client, error) {
 	c := client{}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(awsProfile))
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return &c, fmt.Errorf("newClient: unable to load SDK config, %w", err)
 	}
@@ -48,7 +45,7 @@ func (c *client) instanceTypeOfferings() error {
 		}
 	}
 
-	log.Printf("%d instance types found in %s", len(c.availableInstances), region)
+	log.Printf("%d instance types found", len(c.availableInstances))
 
 	return nil
 }
@@ -105,7 +102,7 @@ func (c *client) processResourceChanges() ([]invalidInstanceType, error) {
 
 			// Check if the instance_type in the TF plan is in our retrieved list of available instance types for the AWS region
 			if !contains(c.availableInstances, instanceType) {
-				log.Printf("ERROR: instance type %s for '%s' not valid for this region (%s)", instanceType, change.Address, region)
+				log.Printf("ERROR: instance type %s for '%s' not valid for this region", instanceType, change.Address)
 				offender := invalidInstanceType{
 					address:      change.Address,
 					resourceType: change.Type,
