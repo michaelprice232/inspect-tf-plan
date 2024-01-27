@@ -1,4 +1,4 @@
-// Check to check which instance types are not available in the target AWS region
+// Script to check which instance types are not available in the target AWS region
 package main
 
 import (
@@ -31,16 +31,16 @@ func newClient(region string) (*client, error) {
 	}
 
 	// Config for 2 different regions as the pricing API is us-east-1 only
-	londonConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	regionConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
-		return &c, fmt.Errorf("newClient: unable to load SDK config for London region, %w", err)
+		return &c, fmt.Errorf("newClient: unable to load SDK config for target region, %w", err)
 	}
 	virginiaConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-east-1"))
 	if err != nil {
 		return &c, fmt.Errorf("newClient: unable to load SDK config for North Virginia region, %w", err)
 	}
 
-	c.ec2Client = ec2.NewFromConfig(londonConfig)
+	c.ec2Client = ec2.NewFromConfig(regionConfig)
 	c.ec2Paginator = ec2.NewDescribeInstanceTypeOfferingsPaginator(c.ec2Client, &ec2.DescribeInstanceTypeOfferingsInput{})
 
 	c.pricingClient = pricing.NewFromConfig(virginiaConfig)
@@ -121,7 +121,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Report any instance types which appear in the pricing API but not available in the London region
+	// Report any instance types which appear in the pricing API but not available in the target region
 	missingTypes := make([]string, 0)
 	for _, pricingType := range c.allInstanceTypes {
 		if !contains(c.regionTypes, pricingType) {
