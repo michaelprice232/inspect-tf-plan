@@ -18,6 +18,7 @@ const awsProfile = "scratch"
 
 type client struct {
 	ec2Client          *ec2.Client
+	paginator          *ec2.DescribeInstanceTypeOfferingsPaginator
 	availableInstances []string
 	terraformPlan      tfjson.Plan
 }
@@ -30,18 +31,21 @@ func newClient() (*client, error) {
 		return &c, fmt.Errorf("newClient: unable to load SDK config, %w", err)
 	}
 	c.ec2Client = ec2.NewFromConfig(cfg)
+	c.paginator = ec2.NewDescribeInstanceTypeOfferingsPaginator(c.ec2Client, &ec2.DescribeInstanceTypeOfferingsInput{})
 
 	return &c, nil
 }
 
 func (c *client) instanceTypeOfferings() error {
-	offeringsOutput, err := c.ec2Client.DescribeInstanceTypeOfferings(context.TODO(), &ec2.DescribeInstanceTypeOfferingsInput{})
-	if err != nil {
-		return fmt.Errorf("instanceTypeOfferings: describing instance type offerings: %w", err)
-	}
+	for c.paginator.HasMorePages() {
+		output, err := c.paginator.NextPage(context.TODO())
+		if err != nil {
+			return fmt.Errorf("instanceTypeOfferings: describing instance type offerings: %w", err)
+		}
 
-	for _, o := range offeringsOutput.InstanceTypeOfferings {
-		c.availableInstances = append(c.availableInstances, string(o.InstanceType))
+		for _, o := range output.InstanceTypeOfferings {
+			c.availableInstances = append(c.availableInstances, string(o.InstanceType))
+		}
 	}
 
 	log.Printf("%d instance types found in %s", len(c.availableInstances), region)
@@ -72,12 +76,17 @@ func contains(slice []string, search string) bool {
 	return false
 }
 
-func (c *client) processResourceChanges() error {
-	var foundInvalidInstanceType bool
+type invalidInstanceType struct {
+	address      string
+	resourceType string
+	instanceType string
+}
+
+func (c *client) processResourceChanges() ([]invalidInstanceType, error) {
+	offendingInstanceTypes := make([]invalidInstanceType, 0)
 	supportedChangeTypes := []string{"aws_instance", "aws_launch_template", "aws_launch_configuration"}
 
 	for _, change := range c.terraformPlan.ResourceChanges {
-
 		if contains(supportedChangeTypes, change.Type) && (change.Change.Actions.Update() || change.Change.Actions.Create()) {
 
 			// Only query all available instance types when there is an appropriate TF change that requires it and
@@ -85,7 +94,7 @@ func (c *client) processResourceChanges() error {
 			if len(c.availableInstances) == 0 {
 				err := c.instanceTypeOfferings()
 				if err != nil {
-					return fmt.Errorf("processResourceChanges: querying for all instance types: %w", err)
+					return nil, fmt.Errorf("processResourceChanges: querying for all instance types: %w", err)
 				}
 			}
 
@@ -97,23 +106,24 @@ func (c *client) processResourceChanges() error {
 			// Check if the instance_type in the TF plan is in our retrieved list of available instance types for the AWS region
 			if !contains(c.availableInstances, instanceType) {
 				log.Printf("ERROR: instance type %s for '%s' not valid for this region (%s)", instanceType, change.Address, region)
-				foundInvalidInstanceType = true
+				offender := invalidInstanceType{
+					address:      change.Address,
+					resourceType: change.Type,
+					instanceType: instanceType,
+				}
+				offendingInstanceTypes = append(offendingInstanceTypes, offender)
 			}
 		}
 	}
 
-	if foundInvalidInstanceType {
-		return fmt.Errorf("processResourceChanges: found at least invalid instance type. See offenders above")
-	}
-
-	return nil
+	return offendingInstanceTypes, nil
 }
 
 func main() {
 	planPath := flag.String("plan-path", "", "The path to the Terraform plan file")
 	flag.Parse()
 	if *planPath == "" {
-		log.Fatalf("Usage: %s --plan-file <path-to-tf-plan-file>", os.Args[0])
+		log.Fatalf("Usage: %s --plan-path <path-to-tf-plan-file>", os.Args[0])
 	}
 
 	c, err := newClient()
@@ -126,8 +136,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = c.processResourceChanges()
+	results, err := c.processResourceChanges()
 	if err != nil {
 		log.Fatal(err)
+	}
+	if len(results) != 0 {
+		log.Fatalf("At least one invalid instance type has been detected in the plan. See above output for further details")
 	}
 }
