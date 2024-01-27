@@ -80,7 +80,8 @@ func (c *client) processResourceChanges() error {
 
 		if contains(supportedChangeTypes, change.Type) && (change.Change.Actions.Update() || change.Change.Actions.Create()) {
 
-			// Only query all available instance types when there is an appropriate TF change that requires it
+			// Only query all available instance types when there is an appropriate TF change that requires it and
+			// if it hasn't been populated in the client already (call a max of once)
 			if len(c.availableInstances) == 0 {
 				err := c.instanceTypeOfferings()
 				if err != nil {
@@ -93,6 +94,7 @@ func (c *client) processResourceChanges() error {
 			afterPlan := change.Change.After.(map[string]interface{})
 			instanceType := afterPlan["instance_type"].(string)
 
+			// Check if the instance_type in the TF plan is in our retrieved list of available instance types for the AWS region
 			if !contains(c.availableInstances, instanceType) {
 				log.Printf("ERROR: instance type %s for '%s' not valid for this region (%s)", instanceType, change.Address, region)
 				foundInvalidInstanceType = true
