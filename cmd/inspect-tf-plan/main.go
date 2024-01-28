@@ -8,10 +8,13 @@ import (
 	"os"
 
 	"github.com/Adarga-Ltd/lib-golang-common/modules/logging"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	tfjson "github.com/hashicorp/terraform-json"
 )
+
+var supportedChangeTypes = []string{"aws_instance", "aws_launch_template", "aws_launch_configuration"}
 
 type client struct {
 	ec2Client          *ec2.Client
@@ -84,39 +87,53 @@ type invalidInstanceType struct {
 
 func (c *client) processResourceChanges() ([]invalidInstanceType, error) {
 	offendingInstanceTypes := make([]invalidInstanceType, 0)
-	supportedChangeTypes := []string{"aws_instance", "aws_launch_template", "aws_launch_configuration"}
 
 	for _, change := range c.terraformPlan.ResourceChanges {
-		if contains(supportedChangeTypes, change.Type) && (change.Change.Actions.Update() || change.Change.Actions.Create()) {
+		invalidType, err := c.processSingleChange(change)
+		if err != nil {
+			return offendingInstanceTypes, fmt.Errorf("processResourceChanges: procesing change from plan: %w", err)
+		}
 
-			// Only query all available instance types when there is an appropriate TF change that requires it and
-			// if it hasn't been populated in the client already (call a max of once)
-			if len(c.availableInstances) == 0 {
-				err := c.instanceTypeOfferings()
-				if err != nil {
-					return nil, fmt.Errorf("processResourceChanges: querying for all instance types: %w", err)
-				}
-			}
-
-			c.logger.Info(fmt.Sprintf("%s %v change found in the plan (%s)", change.Type, change.Change.Actions, change.Address))
-
-			afterPlan := change.Change.After.(map[string]interface{})
-			instanceType := afterPlan["instance_type"].(string)
-
-			// Check if the instance_type in the TF plan is in our retrieved list of available instance types for the AWS region
-			if !contains(c.availableInstances, instanceType) {
-				c.logger.Error(fmt.Sprintf("ERROR: instance type %s for '%s' not valid for this region", instanceType, change.Address))
-				offender := invalidInstanceType{
-					address:      change.Address,
-					resourceType: change.Type,
-					instanceType: instanceType,
-				}
-				offendingInstanceTypes = append(offendingInstanceTypes, offender)
-			}
+		// Check for non-empty struct
+		if invalidType.address != "" {
+			offendingInstanceTypes = append(offendingInstanceTypes, invalidType)
 		}
 	}
 
 	return offendingInstanceTypes, nil
+}
+
+func (c *client) processSingleChange(change *tfjson.ResourceChange) (invalidInstanceType, error) {
+	invalidType := invalidInstanceType{}
+
+	if contains(supportedChangeTypes, change.Type) && (change.Change.Actions.Update() || change.Change.Actions.Create()) {
+
+		// Only query all available instance types when there is an appropriate TF change that requires it and
+		// if it hasn't been populated in the client already (call a max of once)
+		if len(c.availableInstances) == 0 {
+			err := c.instanceTypeOfferings()
+			if err != nil {
+				return invalidType, fmt.Errorf("processSingleChange: querying for all instance types: %w", err)
+			}
+		}
+
+		c.logger.Info(fmt.Sprintf("%s %v change found in the plan (%s)", change.Type, change.Change.Actions, change.Address))
+
+		afterPlan := change.Change.After.(map[string]interface{})
+		instanceType := afterPlan["instance_type"].(string)
+
+		// Check if the instance_type in the change is in our retrieved list of available instance types for the AWS region
+		if !contains(c.availableInstances, instanceType) {
+			c.logger.Error(fmt.Sprintf("ERROR: instance type %s for '%s' not valid for this region or there is a typo", instanceType, change.Address))
+			invalidType = invalidInstanceType{
+				address:      change.Address,
+				resourceType: change.Type,
+				instanceType: instanceType,
+			}
+		}
+	}
+
+	return invalidType, nil
 }
 
 func main() {
