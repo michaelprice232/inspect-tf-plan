@@ -21,7 +21,7 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_instance" "web" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.micro"
+  instance_type = "r7a.metal-48xl"
 
   subnet_id              = "subnet-08d487c7b68b31824"
   vpc_security_group_ids = [aws_security_group.web.id]
@@ -43,11 +43,11 @@ resource "aws_security_group" "web" {
 
 resource "aws_launch_template" "web" {
   name          = "mike-test"
-  instance_type = "t3.large"
+  instance_type = "x2gd.medium"
 }
 
 resource "aws_launch_configuration" "web" {
   name          = "mike-test"
   image_id      = data.aws_ami.ubuntu.id
-  instance_type = "t3.nano"
+  instance_type = "m5dn.xlarge"
 }

@@ -3,6 +3,7 @@ module inspect-tf-plan
 go 1.21
 
 require (
+	github.com/Adarga-Ltd/lib-golang-common/modules/logging v1.32.1
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.145.0
@@ -26,5 +27,9 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/zclconf/go-cty v1.14.1 // indirect
+	go.opentelemetry.io/otel v1.19.0 // indirect
+	go.opentelemetry.io/otel/trace v1.19.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 )

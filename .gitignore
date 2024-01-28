@@ -55,3 +55,4 @@ go.work
 
 .idea
 terraform/plan*
+inspect-tf-plan

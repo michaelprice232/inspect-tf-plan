@@ -9,7 +9,7 @@ but they don't check for regional availability.
 
 The tool solves this problem by checking the diff of the Terraform plan for any of the supported resource types and validates that the
 instance type is valid for the target AWS region by using the [describe-instance-type-offerings](https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instance-type-offerings.html) API.
-The target region will be the one assigned to the AWS credentials in use (an example using AWS profiles is below).
+The target region defaults to London (eu-west-2) although it can be changed by using the `--region flag`.
 
 The input to this tool is a Terraform plan which has been exported in JSON format:
 ```shell
@@ -28,9 +28,9 @@ Currently supported Terraform resource types:
 ## How to run locally
 Typically, the tool would be run from a CI system after the Terraform plan stage has executed. Example of running locally:
 ```shell
-AWS_PROFILE=profile go run ./cmd/inspect-tf-plan/main.go --plan-path <path-to-plan>
+AWS_PROFILE=profile go run ./cmd/inspect-tf-plan/main.go --plan-path <path-to-plan> [--region <aws-region>] [--log-level <zap-log-level>]
 
-# Example
+# Example using the defaults of the London region and a log level of ERROR
 AWS_PROFILE=profile go run ./cmd/inspect-tf-plan/main.go --plan-path ./plans/two-changes-bad.json
 ```
 

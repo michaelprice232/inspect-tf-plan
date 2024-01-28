@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
+	"github.com/Adarga-Ltd/lib-golang-common/modules/logging"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	tfjson "github.com/hashicorp/terraform-json"
@@ -18,12 +18,15 @@ type client struct {
 	paginator          *ec2.DescribeInstanceTypeOfferingsPaginator
 	availableInstances []string
 	terraformPlan      tfjson.Plan
+	logger             *logging.Logger
 }
 
-func newClient() (*client, error) {
+func newClient(region, logLevel string) (*client, error) {
 	c := client{}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	c.logger = logging.NewLogger(logLevel, os.Stdout)
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return &c, fmt.Errorf("newClient: unable to load SDK config, %w", err)
 	}
@@ -45,7 +48,7 @@ func (c *client) instanceTypeOfferings() error {
 		}
 	}
 
-	log.Printf("%d instance types found", len(c.availableInstances))
+	c.logger.Info(fmt.Sprintf("%d instance types found", len(c.availableInstances)))
 
 	return nil
 }
@@ -95,14 +98,14 @@ func (c *client) processResourceChanges() ([]invalidInstanceType, error) {
 				}
 			}
 
-			log.Printf("%s %v change found in the plan (%s)", change.Type, change.Change.Actions, change.Address)
+			c.logger.Info(fmt.Sprintf("%s %v change found in the plan (%s)", change.Type, change.Change.Actions, change.Address))
 
 			afterPlan := change.Change.After.(map[string]interface{})
 			instanceType := afterPlan["instance_type"].(string)
 
 			// Check if the instance_type in the TF plan is in our retrieved list of available instance types for the AWS region
 			if !contains(c.availableInstances, instanceType) {
-				log.Printf("ERROR: instance type %s for '%s' not valid for this region", instanceType, change.Address)
+				c.logger.Error(fmt.Sprintf("ERROR: instance type %s for '%s' not valid for this region", instanceType, change.Address))
 				offender := invalidInstanceType{
 					address:      change.Address,
 					resourceType: change.Type,
@@ -117,27 +120,30 @@ func (c *client) processResourceChanges() ([]invalidInstanceType, error) {
 }
 
 func main() {
+	logLevel := flag.String("log-level", "ERROR", "Zap logger level")
+	region := flag.String("region", "eu-west-2", "Which AWS region to target. Defaults to London")
 	planPath := flag.String("plan-path", "", "The path to the Terraform plan file")
 	flag.Parse()
 	if *planPath == "" {
-		log.Fatalf("Usage: %s --plan-path <path-to-tf-plan-file>", os.Args[0])
+		fmt.Printf("Usage: %s --plan-path <path-to-tf-plan-file>", os.Args[0])
+		os.Exit(1)
 	}
 
-	c, err := newClient()
+	c, err := newClient(*region, *logLevel)
 	if err != nil {
-		log.Fatal(err)
+		c.logger.Fatal(fmt.Sprintf("%v", err))
 	}
 
 	err = c.parsePlan(*planPath)
 	if err != nil {
-		log.Fatal(err)
+		c.logger.Fatal(fmt.Sprintf("%v", err))
 	}
 
 	results, err := c.processResourceChanges()
 	if err != nil {
-		log.Fatal(err)
+		c.logger.Fatal(fmt.Sprintf("%v", err))
 	}
 	if len(results) != 0 {
-		log.Fatalf("At least one invalid instance type has been detected in the plan. See above output for further details")
+		c.logger.Fatal(fmt.Sprintf("At least one invalid instance type has been detected in the plan. See above output for further details"))
 	}
 }
