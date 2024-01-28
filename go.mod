@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.145.0
 	github.com/aws/aws-sdk-go-v2/service/pricing v1.24.6
 	github.com/hashicorp/terraform-json v0.21.0
+	github.com/stretchr/testify v1.8.4
 )
 
 require (
@@ -24,12 +25,15 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.26.7 // indirect
 	github.com/aws/smithy-go v1.19.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/zclconf/go-cty v1.14.1 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

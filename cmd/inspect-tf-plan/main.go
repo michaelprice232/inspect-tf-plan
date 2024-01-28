@@ -16,9 +16,14 @@ import (
 
 var supportedChangeTypes = []string{"aws_instance", "aws_launch_template", "aws_launch_configuration"}
 
+type DescribeInstanceTypeOfferingsPaginatorAPI interface {
+	HasMorePages() bool
+	NextPage(context.Context, ...func(options *ec2.Options)) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
+}
+
 type client struct {
 	ec2Client          *ec2.Client
-	paginator          *ec2.DescribeInstanceTypeOfferingsPaginator
+	paginator          DescribeInstanceTypeOfferingsPaginatorAPI
 	availableInstances []string
 	terraformPlan      tfjson.Plan
 	logger             *logging.Logger
