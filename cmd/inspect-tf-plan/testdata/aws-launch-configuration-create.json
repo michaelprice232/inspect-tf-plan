@@ -809,7 +809,7 @@
           "ephemeral_block_device": [],
           "iam_instance_profile": null,
           "image_id": "ami-0f244b28200b93640",
-          "instance_type": "t3.nano",
+          "instance_type": "YET_ANOTHER_BAD_TYPE",
           "name": "mike-test",
           "placement_tenancy": null,
           "security_groups": null,

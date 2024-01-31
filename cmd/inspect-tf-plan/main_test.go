@@ -129,7 +129,14 @@ func Test_processSingleChange(t *testing.T) {
 			resourceType: "aws_launch_template",
 			instanceType: "ANOTHER_BAD_TYPE",
 		}},
+		{name: "expected-invalid-type-aws_launch_configuration-update", planPath: "./testdata/aws-launch-configuration-create.json", changeIndex: 1, expectedError: false, expectedInvalidType: true, invalidTypeDetails: invalidInstanceType{
+			address:      "aws_launch_configuration.web",
+			resourceType: "aws_launch_configuration",
+			instanceType: "YET_ANOTHER_BAD_TYPE",
+		}},
+		{name: "unsupported-resource-type", planPath: "./testdata/aws-launch-configuration-create.json", changeIndex: 3, expectedError: false, expectedInvalidType: false, invalidTypeDetails: invalidInstanceType{}},
 		{name: "supported-instance-type-aws_instance-create", planPath: "./testdata/aws-instance-create.json", changeIndex: 0, expectedError: false, expectedInvalidType: false, invalidTypeDetails: invalidInstanceType{}},
+		{name: "no-op-action", planPath: "./testdata/aws-instance-noop.json", changeIndex: 0, expectedError: false, expectedInvalidType: false, invalidTypeDetails: invalidInstanceType{}},
 	}
 
 	for _, tt := range cases {
